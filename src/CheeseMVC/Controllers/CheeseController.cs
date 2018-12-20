@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using CheeseMVC.ViewModels;
 using CheeseMVC.Data;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 
 namespace CheeseMVC.Controllers
 {
@@ -19,20 +20,23 @@ namespace CheeseMVC.Controllers
         // GET: /<controller>/
         public IActionResult Index()
         {
-            List<Cheese> cheeses = context.Cheeses.ToList();
+            IList<Cheese> cheeses = context.Cheeses.Include(c => c.Category).ToList();
 
             return View(cheeses);
         }
 
         public IActionResult Add()
         {
-            AddCheeseViewModel addCheeseViewModel = new AddCheeseViewModel();
+            AddCheeseViewModel addCheeseViewModel = new AddCheeseViewModel(context.Categories.ToList());
             return View(addCheeseViewModel);
         }
 
         [HttpPost]
         public IActionResult Add(AddCheeseViewModel addCheeseViewModel)
         {
+            CheeseCategory newCheeseCategory =
+                    context.Categories.SingleOrDefault(c => c.ID == addCheeseViewModel.CategoryID);
+
             if (ModelState.IsValid)
             {
                 // Add the new cheese to my existing cheeses
@@ -40,7 +44,7 @@ namespace CheeseMVC.Controllers
                 {
                     Name = addCheeseViewModel.Name,
                     Description = addCheeseViewModel.Description,
-                    Type = addCheeseViewModel.Type
+                    Category = newCheeseCategory
                 };
 
                 context.Cheeses.Add(newCheese);
@@ -49,13 +53,13 @@ namespace CheeseMVC.Controllers
                 return Redirect("/Cheese");
             }
 
+            addCheeseViewModel = new AddCheeseViewModel(context.Categories.ToList());
             return View(addCheeseViewModel);
         }
 
         public IActionResult Remove()
         {
-            ViewBag.title = "Remove Cheeses";
-            ViewBag.cheeses = context.Cheeses.ToList();
+            List<Cheese> cheeses = context.Cheeses.ToList();
             return View();
         }
 
@@ -72,5 +76,26 @@ namespace CheeseMVC.Controllers
 
             return Redirect("/");
         }
+
+        public IActionResult Category (int id)
+        {
+            if (id == 0)
+            {
+                return Redirect("/Category");
+            }
+            CheeseCategory theCategory = context
+                .Categories
+                .Include(c => c.Cheeses)
+                .SingleOrDefault(c => c.ID == id);
+
+            ViewBag.Title = string.Format("Cheeses in category: {0}", theCategory.Name);
+
+
+            return View("Index", theCategory.Cheeses);
+
+        }
+
+
     }
+
 }
